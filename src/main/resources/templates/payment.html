@@ -290,17 +290,59 @@
             document.getElementById('payButton').disabled = false;
         }
 
-        function processPayment(event) {
-            event.preventDefault(); // Stop default submission initially
+        async function processPayment(event) {
+            event.preventDefault(); // Stop default submission
 
+            var method = document.getElementById('selectedMethodInput').value;
             var overlay = document.getElementById('processingOverlay');
-            overlay.style.display = 'flex';
+            var overlayText = overlay.querySelector('h2');
 
-            // Simulate network delay
-            setTimeout(function () {
-                // Submit the form programmatically
-                document.getElementById('paymentForm').submit();
-            }, 2000);
+            // Collect Data
+            var requestData = {
+                paymentMethod: method,
+                amount: 1000.00 // In real app, fetch from hidden input or server session
+            };
+
+            if (method === 'card') {
+                var cardForm = document.getElementById('card-details');
+                requestData.cardNumber = cardForm.querySelector('input[placeholder*="0000"]').value.replace(/\s/g, '');
+                requestData.cardHolderName = cardForm.querySelector('input[placeholder*="Name"]').value;
+                requestData.expiryDate = cardForm.querySelector('input[placeholder*="MM/YY"]').value;
+                requestData.cvv = cardForm.querySelector('input[placeholder*="123"]').value;
+            } else if (method === 'upi') {
+                requestData.upiId = document.getElementById('upi-details').querySelector('input').value;
+            }
+
+            // Show Processing Overlay
+            overlay.style.display = 'flex';
+            overlayText.innerText = 'Contacting Bank...';
+
+            try {
+                // Call Mock API
+                const response = await fetch('/api/pay', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    overlayText.innerText = 'Payment Successful! ✅';
+                    setTimeout(() => {
+                        // Submit to backend to finalize order
+                        document.getElementById('paymentForm').submit();
+                    }, 1000);
+                } else {
+                    overlay.style.display = 'none';
+                    alert("Payment Failed ❌\nReason: " + result.message);
+                }
+
+            } catch (error) {
+                console.error("Error:", error);
+                overlay.style.display = 'none';
+                alert("Transaction Error. Please try again.");
+            }
 
             return false;
         }
